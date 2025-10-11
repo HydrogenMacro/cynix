@@ -1,15 +1,16 @@
 import Link from "next/link";
+import { View } from "./view/View";
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-stretch">
-      <div className="h-[80svh] bg-gradient-to-l from-red-500 to-blue-500 flex items-center justify-center">
-        <h1 className="text-6xl font-light text-white">Cynix</h1>
-        <Link href={"/game"} />
-      </div>
-      <div className="">
+    <div className="flex flex-col items-stretch h-dvh">
+      <div className="h-12 bg-blue-400 flex-none">
         
+      </div>
+      <div className="flex-1 flex relative overflow-hidden bg-blue-200">
+        <View />
       </div>
     </div>
   );
 }
+
