@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import mkRegl from "regl";
 import { mat3, mat4, vec3 } from 'gl-matrix';
 import { mkDrawBox } from './box';
+import { camera } from './cam';
 if (globalThis.window) {
     //@ts-ignore
     const { Spector } = await import("spectorjs");
@@ -13,6 +14,8 @@ if (globalThis.window) {
 export function View() {
     const canvasRef = useRef<HTMLCanvasElement>(null!);
     useEffect(() => {
+        if (!globalThis.window) return;
+        camera.initControls()
         draw(canvasRef.current);
     }, []);
     const [windowSize, setWindowSize] = useState([0, 0]);
@@ -29,8 +32,6 @@ async function draw(canvas: HTMLCanvasElement) {
     await import("dbgui");
     const regl = mkRegl({ gl: canvas.getContext("webgl")!, attributes: { depth: true, antialias: true }, extensions: ["OES_standard_derivatives"] });
 
-    let view = mat4.create();
-    view = mat4.lookAt(view, [0, 10, 20], [0, 0, -10], [0, 1, 0]);
     const wallDrawFns = ([
         [[10, 1, 10], [-5, -1, -5], RGB(250, 227, 219)], // floor
         [[10, 1, 10], [-5, 9, -5], RGB(250, 227, 219)], // ceiling
@@ -42,8 +43,7 @@ async function draw(canvas: HTMLCanvasElement) {
         return (a: any) => {
             let model = mat4.create();
             model = mat4.translate(model, model, wallPos);
-            let normalMat = mat3.normalFromMat4([], mat4.multiply([], model, view));
-            drawCall({ ...a, model: model, color, normalMat })
+            drawCall({ ...a, model: model, color })
         };
     });
 
@@ -54,12 +54,13 @@ async function draw(canvas: HTMLCanvasElement) {
         .add("z", $slider(-10, 10, .2, () => lightPos[2]).onInput((n) => lightPos[2] = n))
     const drawLightVis = mkDrawBox(regl, .6, .6, .6);
     regl.frame(({ time }) => {
+        const view = camera.mkView();
         regl.clear({
             color: [0, 255, 0, 255],
             depth: 1
         })
         const lightVisModel = mat4.translate([], mat4.create(), lightPos);
-        drawLightVis({ view, lightPos, model: lightVisModel, color: [.2, .3, .4], normalMat: mat3.normalFromMat4([], mat4.mul([], view, lightVisModel)) })
+        drawLightVis({ view, lightPos, model: lightVisModel, color: [.2, .3, .4] })
         wallDrawFns.forEach(drawWall => drawWall({ view, lightPos }));
     })
 }

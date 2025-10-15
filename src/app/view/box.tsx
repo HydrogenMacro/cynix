@@ -1,5 +1,6 @@
 import { mat4 } from 'gl-matrix';
 import { Regl } from 'regl';
+import { camera } from './cam';
 
 
 export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
@@ -33,13 +34,16 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     varying vec2 vFaceFragPos;
     uniform vec3 lightPos;
     uniform vec3 color;
-    
+    uniform vec2 viewportSize;
+    varying vec2 vFragScreenNdc;
+
     void main() {
+        vec2 ndcPixelSize = 1./viewportSize;
         vec3 c;
         float isBottomOrLeftEdge = float(min(vFaceFragPos.x, vFaceFragPos.y) < 0.1);
         vec2 distFromMaxEdge = vFaceSize - vFaceFragPos;
         float isTopOrRightEdge = float(min(distFromMaxEdge.x, distFromMaxEdge.y) < 0.1);
-        c = mix(vec3(vUv, 1.), vec3(.5,.6,.7), isTopOrRightEdge + isBottomOrLeftEdge);
+        c = mix(vec3(1., 0., 0.), vec3(0., 0., 1.), vFragScreenNdc.x);
         gl_FragColor = vec4(c, 1.);
         //gl_FragColor = vec4((normal + 1.) * .5, 1.);
     }
@@ -56,20 +60,34 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     varying vec3 vNormal;
     varying vec2 vFaceSize;
     varying vec2 vFaceFragPos;
-    uniform mat4 projection, view, model;
+    varying vec2 vFragScreenNdc;
+    varying vec2 vMinVertexNdc;
+    varying vec2 vMaxVertexNdc;
+    uniform mat4 projection, orthoProj, view, model;
 
     vec2 cullComponentFromNormal(vec3 a, vec3 norm) {
         if (norm.x != 0.) return a.yz;
         if (norm.y != 0.) return a.xz;
         if (norm.z != 0.) return a.xy;
     }
+    vec3 expandVec2FromNormal(vec2 a, vec3 norm, vec3 vecToCopyComponentFrom) {
+        if (norm.x != 0.) return vec3(vecToCopyComponentFrom.x, a);
+        if (norm.y != 0.) return vec3(a.x, vecToCopyComponentFrom.y, a.y);
+        if (norm.z != 0.) return vec3(a, vecToCopyComponentFrom.z);
+    }
 
     void main() {
         vUv = uv;
-        gl_Position = projection * view * model * vec4(position, 1);
-        vec3 modelPos = vec3(model[0][3],model[1][3],model[2][3]);
+        vec4 pos = view * model * vec4(position, 1.);
         vFaceFragPos = cullComponentFromNormal(position, normal);
         vFaceSize = faceSize;
+        vec4 minVertexPosition = orthoProj * view * model * vec4(expandVec2FromNormal(vec2(0.), normal, position), 1);
+        vMinVertexNdc = minVertexPosition.xy/minVertexPosition.w;
+        vec4 maxVertexPosition = orthoProj * view * model * vec4(expandVec2FromNormal(faceSize, normal, position), 1);
+        vMaxVertexNdc = maxVertexPosition.xy/maxVertexPosition.w;
+        vec4 orthoPos = pos;
+        vFragScreenNdc = orthoPos.xy/orthoPos.w;
+        gl_Position = projection * pos;
     }
     
     `,
@@ -85,14 +103,12 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             model: regl.prop<any, any>("model"),
             view: regl.prop<any, any>("view"),
             normalMat: regl.prop<any, any>("normalMat"),
-            projection: ({ viewportWidth, viewportHeight }) => mat4.perspective([],
-                Math.PI / 4,
-                viewportWidth / viewportHeight,
-                0.1,
-                100),
+            projection: ({ viewportWidth, viewportHeight, time }) => camera.mkPerspectiveProj(viewportWidth, viewportHeight),
+            orthoProj: ({ viewportWidth, viewportHeight, time }) => camera.mkOrthoProj(viewportWidth, viewportHeight),
             objSize: [l, w, h],
             lightPos: regl.prop<any, any>("lightPos"),
             color: regl.prop<any, any>("color"),
+            viewportSize: ({ viewportWidth, viewportHeight }) => [viewportWidth, viewportHeight]
         },
         cull: { enable: true }
     });
