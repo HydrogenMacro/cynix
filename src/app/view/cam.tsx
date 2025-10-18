@@ -23,12 +23,6 @@ export const camera = {
             0.1,
             100);
     },
-    mkOrthoProj(viewportWidth: number, viewportHeight: number) {
-        // viewportWidth / 2
-
-        return mat4.ortho([], -5, 5, -1,
-            -1, 0.1, 100);
-    },
     initControls() {
         const moveDir = [0, 0, 0];
         const lookDir = [0, 0];

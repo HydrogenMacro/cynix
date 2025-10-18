@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import mkRegl from "regl";
 import { mat3, mat4, vec3 } from 'gl-matrix';
-import { mkDrawBox } from './box';
+import { mkDrawBoxBorders, mkDrawBox } from './box';
 import { camera } from './cam';
 if (globalThis.window) {
     //@ts-ignore
@@ -34,33 +34,37 @@ async function draw(canvas: HTMLCanvasElement) {
 
     const wallDrawFns = ([
         [[10, 1, 10], [-5, -1, -5], RGB(250, 227, 219)], // floor
-        [[10, 1, 10], [-5, 9, -5], RGB(250, 227, 219)], // ceiling
-        [[1, 10, 10], [-5, -1, -5], RGB(250, 227, 219)], // left wall
-        [[1, 10, 10], [5, -1, -5], RGB(250, 227, 219)], // right wall
-        [[10, 10, 1], [-5, -1, -5], RGB(250, 227, 219)], // back wall
+        [[10, 1, 10], [-5, 9, -5], RGB(240, 227, 219)], // ceiling
+        [[1, 10, 10], [-5, -1, -5], RGB(230, 227, 219)], // left wall
+        [[1, 10, 10], [5, -1, -5], RGB(220, 227, 219)], // right wall
+        [[10, 10, 1], [-5, -1, -5], RGB(210, 227, 219)], // back wall
     ] as Array<[vec3_, vec3_, vec3_]>).map(([wallDims, wallPos, color]) => {
-        let drawCall = mkDrawBox(regl, ...wallDims);
+        let drawBox = mkDrawBox(regl, ...wallDims);
         return (a: any) => {
             let model = mat4.create();
             model = mat4.translate(model, model, wallPos);
-            drawCall({ ...a, model: model, color })
+            drawBox({ ...a, model: model, color })
+            
         };
     });
 
-    const lightPos = [0, 5, -10];
+    const lightPos = [0, 5, 6];
     dbgui()
         .add("x", $slider(-20, 20, .2, () => lightPos[0]).onInput((n) => lightPos[0] = n))
         .add("y", $slider(-10, 10, .2, () => lightPos[1]).onInput((n) => lightPos[1] = n))
         .add("z", $slider(-10, 10, .2, () => lightPos[2]).onInput((n) => lightPos[2] = n))
-    const drawLightVis = mkDrawBox(regl, .6, .6, .6);
+        .add("pos", $valueDisplay(() => camera.pos.map(a => a.toFixed(4)).join(", ")))
+    const drawLightVis = mkDrawBox(regl, 2., 2, 2);
+    const drawLightVisBorders = mkDrawBoxBorders(regl, 2, 2, 2, .2);
     regl.frame(({ time }) => {
         const view = camera.mkView();
         regl.clear({
-            color: [0, 255, 0, 255],
+            color: [100, 100, 100, 255],
             depth: 1
         })
         const lightVisModel = mat4.translate([], mat4.create(), lightPos);
-        drawLightVis({ view, lightPos, model: lightVisModel, color: [.2, .3, .4] })
+        drawLightVis({ view, lightPos, model: lightVisModel, color: [.8, .7, .6] });
+        drawLightVisBorders({ view, model: lightVisModel });
         wallDrawFns.forEach(drawWall => drawWall({ view, lightPos }));
     })
 }
