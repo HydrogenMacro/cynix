@@ -2,79 +2,13 @@ import { mat4, vec3 } from 'gl-matrix';
 import { Regl } from 'regl';
 import { camera } from './cam';
 
-export function mkDrawBoxBorders(regl: Regl, l: number, h: number, w: number, thickness: number) {
-    const edges = [
-        // vertical edges
-        [[0, 0, 0], [0, h, 0]],
-        [[l, 0, 0], [l, h, 0]],
-        [[l, 0, w], [l, h, w]],
-        [[0, 0, w], [0, h, w]],
-        // bottom face edges
-        [[0, 0, 0], [l, 0, 0]],
-        [[l, 0, 0], [l, 0, w]],
-        [[0, 0, w], [l, 0, w]],
-        [[0, 0, 0], [0, 0, w]],
-        // top face edges
-        [[0, h, 0], [l, h, 0]],
-        [[l, h, 0], [l, h, w]],
-        [[0, h, w], [l, h, w]],
-        [[0, h, 0], [0, h, w]],
-    ];
-    const cubeElements = [
-        [2, 1, 0], [2, 0, 3], // positive z face
-        [6, 5, 4], [6, 4, 7], // positive x face
-        [10, 9, 8], [10, 8, 11], // negative z face
-        [14, 13, 12], [14, 12, 15], // negative x face
-        [18, 17, 16], [18, 16, 19], // top face
-        [20, 21, 22], [23, 20, 22] // bottom face
-    ];
-    const boxPositions: Array<number[][]> = []
-    for (const [edgeStart, edgeEnd] of edges) {
-        let size =
-            vec3.add([], vec3.sub([], edgeEnd, edgeStart), [thickness, thickness, thickness]);
-        const edgeRectPosition = mkRectPrismPositions(
-            size[0], size[1], size[2]
-        ).map(pos => vec3.subtract([], vec3.add([], pos, edgeStart), [thickness / 2., thickness / 2., thickness / 2.]));
-        boxPositions.push(edgeRectPosition as number[][]);
-    }
-
-    const drawBoxBorder = (cubePositions: number[][]) => regl({
-        vert: `
-        precision highp float;
-
-        attribute vec3 position;
-        uniform mat4 view, model, projection;
-        void main() {
-            gl_Position =  projection * view * model * vec4(position, 1.);
-        }
-        `,
-        frag: `
-        precision highp float;
-        uniform vec2 viewportSize;
-        void main() {
-            gl_FragColor = vec4(gl_FragCoord.xy / viewportSize, 0., 1.);
-        }
-        `,
-        attributes: {
-            position: cubePositions
-        },
-        uniforms: {
-            model: regl.prop<any, any>("model"),
-            view: regl.prop<any, any>("view"),
-            projection: ({ viewportWidth, viewportHeight, time }) => camera.mkPerspectiveProj(viewportWidth, viewportHeight),
-            viewportSize: ({viewportWidth, viewportHeight }) => [viewportWidth, viewportHeight]
-        },
-        elements: cubeElements
-    });
-    const boxBorderDrawFns = boxPositions.map(boxPosition => drawBoxBorder(boxPosition));
-    return (a: any) => {
-        boxBorderDrawFns.forEach(f => f({...a}))
-    }
-}
 export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     const cubePosition = mkRectPrismPositions(l, h, w);
     const cubeUv = Array(6).fill(0).map(() => [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
     const cubeNormal = [[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0], [0, 1, 0], [0, -1, 0]].map(a => [...a, ...a, ...a, ...a]);
+    const cubeMaxVertexPos = [[l, h, w], [l, w, h], [l, h, 0], [0, w, h], [l, h, w], [l, 0, w]].map(a => [...a, ...a, ...a, ...a]);
+    const cubeMinVertexPos = [[0, 0, w], [l, 0, 0], [0, 0, 0], [0, 0, 0], [0, h, 0], [0, 0, 0]].map(a => [...a, ...a, ...a, ...a]);
+
     const cubeElements = [
         [2, 1, 0], [2, 0, 3], // positive z face
         [6, 5, 4], [6, 4, 7], // positive x face
@@ -93,16 +27,53 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     uniform vec3 lightPos;
     uniform vec3 color;
     uniform vec2 viewportSize;
-    varying vec2 vMinVertexNdc;
-    varying vec2 vMaxVertexNdc;
-    varying vec2 isMinVertex;
-    varying vec4 vFragPosViewSpace;
+    uniform float outlineThickness;
+    uniform mat4 view;
+    varying vec4 vMaxVertexPos;
+    varying vec4 vMinVertexPos;
 
     void main() {
+        vec2 fragUv = gl_FragCoord.xy / viewportSize;
+        vec2 pixelSize = 1. / viewportSize;
+        vec2 maxVertexUvPos = (vMaxVertexPos.xy / vMaxVertexPos.w + 1.) / 2.;
+        vec2 minVertexUvPos = (vMinVertexPos.xy / vMinVertexPos.w + 1.) / 2.;
+        vec3 cameraPos = vec3(view[0][3], view[1][3], view[2][3]);
         vec3 c;
         c = vec3(color);
+        float q = (1. - fragUv.y) / sin(
+            acos(dot(view[1].xyz, vec3(1., 0., 0)) 
+                / length(view[1].xyz)
+            )
+        );
+        if (fragUv.x > .95) {
+            gl_FragColor = vec4(q, 0., 0., 1.);
+            //return;
+        }
+        vec2 d = fragUv - minVertexUvPos;
+        if (fragUv.x > .5) {
+            if (0. - pixelSize.x <= d.x && d.x <= pixelSize.x * outlineThickness * .5 && vNormal.y == 0.) {
+                c = vec3(smoothstep(0. - pixelSize.x, pixelSize.x * outlineThickness * .5, d.x));
+            }
+            if (
+                (maxVertexUvPos.x - minVertexUvPos.x) - pixelSize.x * outlineThickness <= d.x 
+                && d.x <= (maxVertexUvPos.x - minVertexUvPos.x) + pixelSize.x
+                && vNormal.y == 0.
+            ) {
+                c = vec3(smoothstep(
+                (maxVertexUvPos.x - minVertexUvPos.x) - pixelSize.x * (fragUv.x < .5 ? outlineThickness * .5 : outlineThickness),
+                (maxVertexUvPos.x - minVertexUvPos.x) + pixelSize.x,
+                d.x
+                ));
+            }
+        } else {
+            
+        }
+        
+        
+        //c = vec3(maxVertex.x, 0., 0.);
+        //if (0. <= d.y && d.y <= pixelSize.y * 5. && vNormal.x != 0.)c = vec3(.5);
         gl_FragColor = vec4(c, 1.);
-        //gl_FragColor = vec4((normal + 1.) * .5, 1.);
+        //gl_FragColor = vec4((vNormal + 1.) * .5, 1.);
     }
     
     `,
@@ -112,15 +83,22 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     attribute vec3 position;
     attribute vec2 uv;
     attribute vec3 normal;
+    attribute vec3 maxVertexPos;
+    attribute vec3 minVertexPos;
     varying vec2 vUv;
     varying vec3 vNormal;
+    varying vec4 vMaxVertexPos;
+    varying vec4 vMinVertexPos;
     uniform mat4 projection, view, model;
-    
+    uniform float outlineThickness;
+
     void main() {
         vUv = uv;
+        vNormal = normal;
         mat4 mvp = projection * view * model;
         gl_Position = mvp * vec4(position, 1.);
-        
+        vMaxVertexPos = mvp * vec4(maxVertexPos, 1.);
+        vMinVertexPos = mvp * vec4(minVertexPos, 1.);
     }
     
     `,
@@ -129,6 +107,8 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             position: cubePosition,
             uv: cubeUv,
             normal: cubeNormal,
+            maxVertexPos: cubeMaxVertexPos,
+            minVertexPos: cubeMinVertexPos,
         },
         elements: cubeElements,
         uniforms: {
@@ -139,6 +119,7 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             objSize: [l, w, h],
             lightPos: regl.prop<any, any>("lightPos"),
             color: regl.prop<any, any>("color"),
+            outlineThickness: 10.,
             viewportSize: ({ viewportWidth, viewportHeight }) => [viewportWidth, viewportHeight]
         },
         cull: { enable: true }
