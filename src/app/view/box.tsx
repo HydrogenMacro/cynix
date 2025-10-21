@@ -118,6 +118,11 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     }
 
     void main() {
+        vec2 fragUv = gl_FragCoord.xy / viewportSize;
+        vec2 pixelSize = 1. / viewportSize;
+        vec2 maxVertexUvPos = (vMaxVertexPos.xy / vMaxVertexPos.w + 1.) / 2.;
+        vec2 minVertexUvPos = (vMinVertexPos.xy / vMinVertexPos.w + 1.) / 2.;
+        vec3 cameraPos = vec3(view[0][3], view[1][3], view[2][3]);
         vec3 c;
         c = vec3(color);
         float o = .3;
@@ -132,7 +137,7 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
         );
 
         gl_FragColor = vec4(c, 1.);
-        //gl_FragColor = vec4((normal + 1.) * .5, 1.);
+        //gl_FragColor = vec4((vNormal + 1.) * .5, 1.);
     }
     
     `,
@@ -151,7 +156,8 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     //varying vec3 vMinVertexPos;
     //varying vec3 vMaxVertexPos;
     uniform mat4 projection, view, model;
-    
+    uniform float outlineThickness;
+
     void main() {
         vUv = uv;
         vNormal = normal;
@@ -160,7 +166,8 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
         //vMinVertexPos = minVertexPos;
         //vMaxVertexPos = maxVertexPos;
         gl_Position = mvp * vec4(position, 1.);
-        
+        vMaxVertexPos = mvp * vec4(maxVertexPos, 1.);
+        vMinVertexPos = mvp * vec4(minVertexPos, 1.);
     }
     
     `,
@@ -182,6 +189,7 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             objSize: [l, w, h],
             lightPos: regl.prop<any, any>("lightPos"),
             color: regl.prop<any, any>("color"),
+            outlineThickness: 10.,
             viewportSize: ({ viewportWidth, viewportHeight }) => [viewportWidth, viewportHeight]
         },
         cull: { enable: true }

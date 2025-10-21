@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import mkRegl from "regl";
 import { mat3, mat4, vec3 } from 'gl-matrix';
-import { mkDrawBoxBorders, mkDrawBox } from './box';
+import { mkDrawBox, mkDrawBoxBorders } from './box';
 import { camera } from './cam';
 if (globalThis.window) {
     //@ts-ignore
@@ -33,6 +33,11 @@ async function draw(canvas: HTMLCanvasElement) {
     const regl = mkRegl({ gl: canvas.getContext("webgl")!, attributes: { depth: true, antialias: true }, extensions: ["OES_standard_derivatives"] });
 
     const wallDrawFns = ([
+        [[11, 1, 10], [-5, -1, -5], RGB(250, 227, 219)], // floor
+        [[11, 1, 10], [-5, 10, -5], RGB(240, 227, 219)], // ceiling
+        [[1, 10, 10], [-6, 0, -5], RGB(230, 227, 219)], // left wall
+        [[1, 10, 10], [6, 0, -5], RGB(220, 227, 219)], // right wall
+        [[11, 10, 1], [-5, 0, -5], RGB(210, 227, 219)], // back wall
         [[11, 1, 10], [-5, -1, -5], RGB(250, 227, 219)], // floor
         [[11, 1, 10], [-5, 10, -5], RGB(240, 227, 219)], // ceiling
         [[1, 10, 10], [-6, 0, -5], RGB(230, 227, 219)], // left wall
