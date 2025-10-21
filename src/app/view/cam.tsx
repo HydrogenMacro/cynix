@@ -12,9 +12,11 @@ export const camera = {
         );
         return rot;
     },
+    mkTrgtDirVec() {
+        return vec3.transformMat4([], [0, 0, -1], this.mkTrgtDirMat());
+    },
     mkView() {
-        let trgtDirVec = vec3.transformMat4([], [0, 0, -1], this.mkTrgtDirMat());
-        return mat4.lookAt([], camera.pos, vec3.add([], camera.pos, trgtDirVec), [0, 1, 0]);
+        return mat4.lookAt([], camera.pos, vec3.add([], camera.pos, this.mkTrgtDirVec()), [0, 1, 0]);
     },
     mkPerspectiveProj(viewportWidth: number, viewportHeight: number) {
         return mat4.perspective([],
