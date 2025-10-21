@@ -33,11 +33,11 @@ async function draw(canvas: HTMLCanvasElement) {
     const regl = mkRegl({ gl: canvas.getContext("webgl")!, attributes: { depth: true, antialias: true }, extensions: ["OES_standard_derivatives"] });
 
     const wallDrawFns = ([
-        [[10, 1, 10], [-5, -1, -5], RGB(250, 227, 219)], // floor
-        [[10, 1, 10], [-5, 9, -5], RGB(240, 227, 219)], // ceiling
-        [[1, 10, 10], [-5, -1, -5], RGB(230, 227, 219)], // left wall
-        [[1, 10, 10], [5, -1, -5], RGB(220, 227, 219)], // right wall
-        [[10, 10, 1], [-5, -1, -5], RGB(210, 227, 219)], // back wall
+        [[11, 1, 10], [-5, -1, -5], RGB(250, 227, 219)], // floor
+        [[11, 1, 10], [-5, 10, -5], RGB(240, 227, 219)], // ceiling
+        [[1, 10, 10], [-6, 0, -5], RGB(230, 227, 219)], // left wall
+        [[1, 10, 10], [6, 0, -5], RGB(220, 227, 219)], // right wall
+        [[11, 10, 1], [-5, 0, -5], RGB(210, 227, 219)], // back wall
     ] as Array<[vec3_, vec3_, vec3_]>).map(([wallDims, wallPos, color]) => {
         let drawBox = mkDrawBox(regl, ...wallDims);
         return (a: any) => {
@@ -48,14 +48,23 @@ async function draw(canvas: HTMLCanvasElement) {
         };
     });
 
-    const lightPos = [0, 5, 6];
+    const lightPos: [number,number,number] = [0, 5, 3];
+    const lightSize: [number, number, number] = [5, 5, 6];
+    let drawLightVis = mkDrawBox(regl, ...lightSize);
+    let drawLightVisBorders = mkDrawBoxBorders(regl, ...lightSize, .2);
+    const updateDrawLightVis = () => {
+        console.log(lightSize);
+        drawLightVis = mkDrawBox(regl, ...lightSize);
+        drawLightVisBorders = mkDrawBoxBorders(regl, ...lightSize, .2);
+    }
     dbgui()
         .add("x", $slider(-20, 20, .2, () => lightPos[0]).onInput((n) => lightPos[0] = n))
-        .add("y", $slider(-10, 10, .2, () => lightPos[1]).onInput((n) => lightPos[1] = n))
-        .add("z", $slider(-10, 10, .2, () => lightPos[2]).onInput((n) => lightPos[2] = n))
+        .add("y", $slider(-20, 20, .2, () => lightPos[1]).onInput((n) => lightPos[1] = n))
+        .add("z", $slider(-20, 20, .2, () => lightPos[2]).onInput((n) => lightPos[2] = n))
+        .add("pos l", $slider(.2, 20, .2, () => lightSize[0]).onInput((n) => lightSize[0] = n).onChange(updateDrawLightVis))
+        .add("pos h", $slider(.2, 20, .2, () => lightSize[1]).onInput((n) => lightSize[1] = n).onChange(updateDrawLightVis))
+        .add("pos w", $slider(.2, 20, .2, () => lightSize[2]).onInput((n) => lightSize[2] = n).onChange(updateDrawLightVis))
         .add("pos", $valueDisplay(() => camera.pos.map(a => a.toFixed(4)).join(", ")))
-    const drawLightVis = mkDrawBox(regl, 2., 2, 2);
-    const drawLightVisBorders = mkDrawBoxBorders(regl, 2, 2, 2, .2);
     regl.frame(({ time }) => {
         const view = camera.mkView();
         regl.clear({
@@ -63,8 +72,8 @@ async function draw(canvas: HTMLCanvasElement) {
             depth: 1
         })
         const lightVisModel = mat4.translate([], mat4.create(), lightPos);
-        drawLightVis({ view, lightPos, model: lightVisModel, color: [.8, .7, .6] });
-        drawLightVisBorders({ view, model: lightVisModel });
+        (drawLightVis)({ view, lightPos, model: lightVisModel, color: [.8, .7, .6] });
+        (drawLightVisBorders)({ view, model: lightVisModel });
         wallDrawFns.forEach(drawWall => drawWall({ view, lightPos }));
     })
 }
