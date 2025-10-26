@@ -1,8 +1,8 @@
 import { mat4, vec2, vec3 } from "gl-matrix";
 
 export const camera = {
-    pos: [0, 5, 10],
-    trgtDir: [0, 0],
+    pos: [2, 8, 2],
+    trgtDir: [Math.PI * 3 / 4, -Math.PI * 1 / 6],
     fov: Math.PI / 2,
     mkTrgtDirMat() {
         let rot = mat4.multiply(
