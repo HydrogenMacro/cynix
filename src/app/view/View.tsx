@@ -25,18 +25,20 @@ export function View() {
         dims.add(wallState, "roomHeight", 1, 50).name("Room Height");
         dims.add(wallState, "roomLength", 1, 50).name("Room Length");
         for (const [wallSidePropName, wallSideDisplayName] of [
-            ["bottomWall", "Bottom Wall"],
-            ["topWall", "Top Wall"],
+            ["testCube", "Test Cube"],
+            ["bottomWall", "Floor"],
+            ["topWall", "Ceiling"],
             ["leftWall", "Left Wall"],
             ["rightWall", "Right Wall"],
             ["backWall", "Back Wall"],
-            ["frontWall", "Front Wall"]
-        ] as ["bottomWall" | "topWall" | "leftWall" | "rightWall" | "backWall" | "frontWall", string][]) {
-            const wallFolder = gui.addFolder(wallSideDisplayName);
+            ["frontWall", "Front Wall"],
+        ] as ["bottomWall" | "topWall" | "leftWall" | "rightWall" | "backWall" | "frontWall" | "testCube", string][]) {
+            const wallFolder = gui.addFolder(wallSideDisplayName)
+            if (wallSidePropName !== "testCube") wallFolder.close();
             wallFolder.addColor(wallState[wallSidePropName], "colorStart", 1).name("Gradient Color 1");
             wallFolder.addColor(wallState[wallSidePropName], "colorEnd", 1).name("Gradient Color 2");
             wallFolder.add(wallState[wallSidePropName], "gradAngle", 0, 360).name("Gradient Angle");
-            wallFolder.add(wallState[wallSidePropName], "pattern", { "None": null, "Circle": "circle", "Diamond": "diamond" }).name("Overlay Pattern");
+            wallFolder.add(wallState[wallSidePropName], "pattern", { "None": null, "Circle": "circle", "Diamond": "diamond", "Astroid": "astroid" }).name("Overlay Pattern");
             wallFolder.add(wallState[wallSidePropName], "patternColor", { 
                 "Inverted Gradient": "inverted-color-gradient", 
                 "White@100% Opacity": 1.,
@@ -78,7 +80,9 @@ async function draw(canvas: HTMLCanvasElement) {
         [[1, h, w], [-1, 1, 0], wallState.leftWall], // left wall
         [[1, h, w], [l, 1, 0], wallState.rightWall], // right wall
         [[l, h, 1], [0, 1, w], wallState.backWall], // back wall
-        [[l, h, 1], [0, 1, 0], wallState.frontWall], // front wall
+        [[l, h, 1], [0, 1, -1], wallState.frontWall], // front wall
+        [[3, 3, 3], [l / 2 - 1.5, h / 2 + 1 - 1.5, w / 2 - 1.5], wallState.testCube], // front wall
+        
     ] as Array<[vec3_, vec3_, Wall]>).map(([wallDims, wallPos, wallData]) => {
         let drawBox = mkDrawBox(regl, ...wallDims);
         return (a: any) => {
@@ -89,7 +93,7 @@ async function draw(canvas: HTMLCanvasElement) {
                 colorStart: wallData.colorStart, 
                 colorEnd: wallData.colorEnd, 
                 gradAngle: wallData.gradAngle * Math.PI / 180, 
-                patternType: wallData.pattern == null ? 0 : wallData.pattern == "circle" ? 1 : 2,
+                patternType: wallData.pattern == null ? 0 : wallData.pattern == "circle" ? 1 : wallData.pattern == "diamond" ? 2 : wallData.pattern == "astroid" ? 3 : 999,
                 patternColor: wallData.patternColor == "inverted-color-gradient" ? 999 : wallData.patternColor,
                 patternStartScale: wallData.patternStartScale,
                 patternEndScale: wallData.patternEndScale,
@@ -112,4 +116,3 @@ async function draw(canvas: HTMLCanvasElement) {
         wallDrawFns!.forEach(drawWall => drawWall({ view, lightPos: [0, 0, 0] }));
     })
 }
-function RGB(r: number, g: number, b: number) { return [r / 255, g / 255, b / 255] }

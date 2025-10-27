@@ -39,21 +39,21 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     
     // smoothstep but linear instead of cubic hermite interpolation
     float linstep(float start, float end, float x) {
-        if (start == end) return start;
+        if (start == end) return step(start, x);
         return (clamp(x,start,end)-start)/(end-start);
     }
     vec3 tilingCircle(vec3 scrColor, vec2 uv, vec3 tileColor, float tileStartSize, float tileEndSize) {
-        float startShapeSize = tileStartSize / 2.;
-        float midShapeSize = ((tileStartSize + tileEndSize) / 2.) / 2.;
-        float endShapeSize = tileEndSize / 2.;
-        float prog = 1. - smoothstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, distance(uv, vec2(.5))) // center circle
-        + 1. - smoothstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, distance(uv, vec2(0., 1.))) // top left circle
-        + 1. - smoothstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, distance(uv, vec2(1., 1.))) // top right circle
-        + 1. - smoothstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, distance(uv, vec2(0., 0.))) // bottom left circle
-        + 1. - smoothstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, distance(uv, vec2(1., 0.))); // bottom right circle
+        float startShapeSize = tileStartSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float midShapeSize = ((tileStartSize + tileEndSize) / 2.) * (patternEndScale - patternStartScale) + patternStartScale;
+        float endShapeSize = tileEndSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float prog = 1. - linstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, distance(uv, vec2(.5))) // center circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, distance(uv, vec2(0., 1.))) // top left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, distance(uv, vec2(1., 1.))) // top right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, distance(uv, vec2(0., 0.))) // bottom left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, distance(uv, vec2(1., 0.))); // bottom right circle
         return mix(scrColor, tileColor, prog);
     }
-
+    // manhatten distance forms diamond
     float mhnDist(vec2 a, vec2 b) {
         vec2 k = abs(a - b);
         return k.x + k.y;
@@ -63,13 +63,29 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
         float midShapeSize = ((tileStartSize + tileEndSize) / 2.) * (patternEndScale - patternStartScale) + patternStartScale;
         float endShapeSize = tileEndSize * (patternEndScale - patternStartScale) + patternStartScale;
         float prog = 1. - linstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, mhnDist(uv, vec2(.5))) // center circle
-        + 1. - smoothstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, mhnDist(uv, vec2(0., 1.))) // top left circle
-        + 1. - smoothstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, mhnDist(uv, vec2(1., 1.))) // top right circle
-        + 1. - smoothstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, mhnDist(uv, vec2(0., 0.))) // bottom left circle
-        + 1. - smoothstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, mhnDist(uv, vec2(1., 0.))); // bottom right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, mhnDist(uv, vec2(0., 1.))) // top left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, mhnDist(uv, vec2(1., 1.))) // top right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, mhnDist(uv, vec2(0., 0.))) // bottom left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, mhnDist(uv, vec2(1., 0.))); // bottom right circle
         return mix(scrColor, tileColor, prog);
     }
-    
+    // https://en.wikipedia.org/wiki/Astroid
+    float astroidDist(vec2 a, vec2 b) {
+        vec2 k = a - b;
+        float x = sqrt(abs(k.x)) + sqrt(abs(k.y));
+        return x*x;
+    }
+    vec3 tilingAstroid(vec3 scrColor, vec2 uv, vec3 tileColor, float tileStartSize, float tileEndSize) {
+        float startShapeSize = tileStartSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float midShapeSize = ((tileStartSize + tileEndSize) / 2.) * (patternEndScale - patternStartScale) + patternStartScale;
+        float endShapeSize = tileEndSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float prog = 1. - linstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, astroidDist(uv, vec2(.5))) // center circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, astroidDist(uv, vec2(0., 1.))) // top left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, astroidDist(uv, vec2(1., 1.))) // top right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, astroidDist(uv, vec2(0., 0.))) // bottom left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, astroidDist(uv, vec2(1., 0.))); // bottom right circle
+        return mix(scrColor, tileColor, prog);
+    }
     
     void main() {
         vec3 c;
@@ -80,12 +96,13 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             sin(gradAngle), cos(gradAngle)
         );
         vec2 rotatedScreenUv = rotMtrx * (screenUv - vec2(.5)) + vec2(.5);
-        vec2 rotatedUv = rotMtrx * (vUv * vFaceSize.yy/vFaceSize.yx - vec2(.5)) + vec2(.5);
+        vec2 uv = vUv * vFaceSize.yy/vFaceSize.yx;
+        vec2 rotatedUv = rotMtrx * (uv - vec2(.5)) + vec2(.5);
         c = mix(colorStart, colorEnd, rotatedUv.x);
         vec3 oppoC = mix(colorEnd, colorStart, rotatedUv.x);
         float n = patternAmount;
         float tileSize = 1. / n;
-        vec2 a = rotatedUv * n;
+        vec2 a = uv * n;
         vec2 tileUv = fract(a);
         float b = ((a.x - tileUv.x)) / n;
         float tileEnd = b + tileSize;
@@ -101,6 +118,14 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             ); 
         } else if (patternType == 2) {
             c = tilingDiamond(
+                c,
+                tileUv,
+                patternC,
+                b,
+                tileEnd
+            ); 
+        } else if (patternType == 3) {
+            c = tilingAstroid(
                 c,
                 tileUv,
                 patternC,
