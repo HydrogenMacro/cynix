@@ -157,8 +157,6 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
         vFaceSize = faceSize;
         mat4 mvp = projection * view * model;
         gl_Position = mvp * vec4(position, 1.);
-        vMaxVertexPos = mvp * vec4(maxVertexPos, 1.);
-        vMinVertexPos = mvp * vec4(minVertexPos, 1.);
     }
     
     `,
