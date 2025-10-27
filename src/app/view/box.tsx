@@ -88,11 +88,6 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     }
     
     void main() {
-        vec2 fragUv = gl_FragCoord.xy / viewportSize;
-        vec2 pixelSize = 1. / viewportSize;
-        vec2 maxVertexUvPos = (vMaxVertexPos.xy / vMaxVertexPos.w + 1.) / 2.;
-        vec2 minVertexUvPos = (vMinVertexPos.xy / vMinVertexPos.w + 1.) / 2.;
-        vec3 cameraPos = vec3(view[0][3], view[1][3], view[2][3]);
         vec3 c;
         vec2 screenUv = gl_FragCoord.xy / viewportSize.xx;
         
