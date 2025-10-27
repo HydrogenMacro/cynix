@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  assetPrefix: "/absproxy/3000",
-  basePath: "/absproxy/3000"
+  assetPrefix: "/cynix",
+  basePath: "/cynix",
+  output: "export"
 };
 
 export default nextConfig;

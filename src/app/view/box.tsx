@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'gl-matrix';
+import { mat4, vec2, vec3 } from 'gl-matrix';
 import { Regl } from 'regl';
 import { camera } from './cam';
 
@@ -7,8 +7,7 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     const cubeUv = Array(6).fill(0).map(() => [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
     const cubeNormal = [[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0], [0, 1, 0], [0, -1, 0]].map(a => [...a, ...a, ...a, ...a]);
     const cubeMaxVertexPos = [[l, h, w], [l, w, h], [l, h, 0], [0, w, h], [l, h, w], [l, 0, w]].map(a => [...a, ...a, ...a, ...a]);
-    const cubeMinVertexPos = [[0, 0, w], [l, 0, 0], [0, 0, 0], [0, 0, 0], [0, h, 0], [0, 0, 0]].map(a => [...a, ...a, ...a, ...a]);
-
+    const cubeMinVertexPos = [[0, 0, w], [l, 0, 0], [0, 0, 0], [0, 0, 0], [0, h, 0], [0, 0, 0]].map(a => [...a, ...a, ...a, ...a]); const cubeFaceSize = [[l, h], [w, h], [l, h], [w, h], [l, w], [l, w]].map(a => [...a, ...a, ...a, ...a]);
     const cubeElements = [
         [2, 1, 0], [2, 0, 3], // positive z face
         [6, 5, 4], [6, 4, 7], // positive x face
@@ -25,13 +24,69 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     varying vec2 vUv;
     varying vec3 vNormal;
     uniform vec3 lightPos;
-    uniform vec3 color;
+    uniform vec3 colorStart;
+    uniform vec3 colorEnd;
     uniform vec2 viewportSize;
-    uniform float outlineThickness;
-    uniform mat4 view;
-    varying vec4 vMaxVertexPos;
-    varying vec4 vMinVertexPos;
-
+    varying vec2 vFaceSize;
+    uniform float borderThickness;
+    uniform int patternType;
+    uniform float patternColor;
+    uniform float gradAngle;
+    uniform float patternStartScale;
+    uniform float patternEndScale;
+    uniform float patternBlur;
+    uniform float patternAmount;
+    
+    // smoothstep but linear instead of cubic hermite interpolation
+    float linstep(float start, float end, float x) {
+        if (start == end) return step(start, x);
+        return (clamp(x,start,end)-start)/(end-start);
+    }
+    vec3 tilingCircle(vec3 scrColor, vec2 uv, vec3 tileColor, float tileStartSize, float tileEndSize) {
+        float startShapeSize = tileStartSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float midShapeSize = ((tileStartSize + tileEndSize) / 2.) * (patternEndScale - patternStartScale) + patternStartScale;
+        float endShapeSize = tileEndSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float prog = 1. - linstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, distance(uv, vec2(.5))) // center circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, distance(uv, vec2(0., 1.))) // top left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, distance(uv, vec2(1., 1.))) // top right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, distance(uv, vec2(0., 0.))) // bottom left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, distance(uv, vec2(1., 0.))); // bottom right circle
+        return mix(scrColor, tileColor, prog);
+    }
+    // manhatten distance forms diamond
+    float mhnDist(vec2 a, vec2 b) {
+        vec2 k = abs(a - b);
+        return k.x + k.y;
+    }
+    vec3 tilingDiamond(vec3 scrColor, vec2 uv, vec3 tileColor, float tileStartSize, float tileEndSize) {
+        float startShapeSize = tileStartSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float midShapeSize = ((tileStartSize + tileEndSize) / 2.) * (patternEndScale - patternStartScale) + patternStartScale;
+        float endShapeSize = tileEndSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float prog = 1. - linstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, mhnDist(uv, vec2(.5))) // center circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, mhnDist(uv, vec2(0., 1.))) // top left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, mhnDist(uv, vec2(1., 1.))) // top right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, mhnDist(uv, vec2(0., 0.))) // bottom left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, mhnDist(uv, vec2(1., 0.))); // bottom right circle
+        return mix(scrColor, tileColor, prog);
+    }
+    // https://en.wikipedia.org/wiki/Astroid
+    float astroidDist(vec2 a, vec2 b) {
+        vec2 k = a - b;
+        float x = sqrt(abs(k.x)) + sqrt(abs(k.y));
+        return x*x;
+    }
+    vec3 tilingAstroid(vec3 scrColor, vec2 uv, vec3 tileColor, float tileStartSize, float tileEndSize) {
+        float startShapeSize = tileStartSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float midShapeSize = ((tileStartSize + tileEndSize) / 2.) * (patternEndScale - patternStartScale) + patternStartScale;
+        float endShapeSize = tileEndSize * (patternEndScale - patternStartScale) + patternStartScale;
+        float prog = 1. - linstep(.5 * midShapeSize, .5 * midShapeSize + patternBlur, astroidDist(uv, vec2(.5))) // center circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, astroidDist(uv, vec2(0., 1.))) // top left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, astroidDist(uv, vec2(1., 1.))) // top right circle
+        + 1. - linstep(.5 * startShapeSize, .5 * startShapeSize + patternBlur, astroidDist(uv, vec2(0., 0.))) // bottom left circle
+        + 1. - linstep(.5 * endShapeSize, .5 * endShapeSize + patternBlur, astroidDist(uv, vec2(1., 0.))); // bottom right circle
+        return mix(scrColor, tileColor, prog);
+    }
+    
     void main() {
         vec2 fragUv = gl_FragCoord.xy / viewportSize;
         vec2 pixelSize = 1. / viewportSize;
@@ -39,39 +94,51 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
         vec2 minVertexUvPos = (vMinVertexPos.xy / vMinVertexPos.w + 1.) / 2.;
         vec3 cameraPos = vec3(view[0][3], view[1][3], view[2][3]);
         vec3 c;
-        c = vec3(color);
-        float q = (1. - fragUv.y) / sin(
-            acos(dot(view[1].xyz, vec3(1., 0., 0)) 
-                / length(view[1].xyz)
-            )
+        vec2 screenUv = gl_FragCoord.xy / viewportSize.xx;
+        
+        mat2 rotMtrx = mat2(
+            cos(gradAngle), -sin(gradAngle),
+            sin(gradAngle), cos(gradAngle)
         );
-        if (fragUv.x > .95) {
-            gl_FragColor = vec4(q, 0., 0., 1.);
-            //return;
-        }
-        vec2 d = fragUv - minVertexUvPos;
-        if (fragUv.x > .5) {
-            if (0. - pixelSize.x <= d.x && d.x <= pixelSize.x * outlineThickness * .5 && vNormal.y == 0.) {
-                c = vec3(smoothstep(0. - pixelSize.x, pixelSize.x * outlineThickness * .5, d.x));
-            }
-            if (
-                (maxVertexUvPos.x - minVertexUvPos.x) - pixelSize.x * outlineThickness <= d.x 
-                && d.x <= (maxVertexUvPos.x - minVertexUvPos.x) + pixelSize.x
-                && vNormal.y == 0.
-            ) {
-                c = vec3(smoothstep(
-                (maxVertexUvPos.x - minVertexUvPos.x) - pixelSize.x * (fragUv.x < .5 ? outlineThickness * .5 : outlineThickness),
-                (maxVertexUvPos.x - minVertexUvPos.x) + pixelSize.x,
-                d.x
-                ));
-            }
-        } else {
-            
-        }
+        vec2 rotatedScreenUv = rotMtrx * (screenUv - vec2(.5)) + vec2(.5);
+        vec2 uv = vUv * vFaceSize.yy/vFaceSize.yx;
+        vec2 rotatedUv = rotMtrx * (uv - vec2(.5)) + vec2(.5);
+        c = mix(colorStart, colorEnd, rotatedUv.x);
+        vec3 oppoC = mix(colorEnd, colorStart, rotatedUv.x);
+        float n = patternAmount;
+        float tileSize = 1. / n;
+        vec2 a = uv * n;
+        vec2 tileUv = fract(a);
+        float b = ((a.x - tileUv.x)) / n;
+        float tileEnd = b + tileSize;
+        vec3 patternC = patternColor > 100. ? oppoC : mix(c,vec3(1.), patternColor);
+        if (patternType == 0) {
+        } else if (patternType == 1) {
+            c = tilingCircle(
+                c,
+                tileUv,
+                patternC,
+                b,
+                tileEnd
+            ); 
+        } else if (patternType == 2) {
+            c = tilingDiamond(
+                c,
+                tileUv,
+                patternC,
+                b,
+                tileEnd
+            ); 
+        } else if (patternType == 3) {
+            c = tilingAstroid(
+                c,
+                tileUv,
+                patternC,
+                b,
+                tileEnd
+            ); 
+        }       
         
-        
-        //c = vec3(maxVertex.x, 0., 0.);
-        //if (0. <= d.y && d.y <= pixelSize.y * 5. && vNormal.x != 0.)c = vec3(.5);
         gl_FragColor = vec4(c, 1.);
         //gl_FragColor = vec4((vNormal + 1.) * .5, 1.);
     }
@@ -83,18 +150,16 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
     attribute vec3 position;
     attribute vec2 uv;
     attribute vec3 normal;
-    attribute vec3 maxVertexPos;
-    attribute vec3 minVertexPos;
+    attribute vec2 faceSize;
     varying vec2 vUv;
     varying vec3 vNormal;
-    varying vec4 vMaxVertexPos;
-    varying vec4 vMinVertexPos;
+    varying vec2 vFaceSize;
     uniform mat4 projection, view, model;
-    uniform float outlineThickness;
-
+    varying vec2 vMinVertexNdc;
+    varying vec2 vMaxVertexNdc;
     void main() {
         vUv = uv;
-        vNormal = normal;
+        vFaceSize = faceSize;
         mat4 mvp = projection * view * model;
         gl_Position = mvp * vec4(position, 1.);
         vMaxVertexPos = mvp * vec4(maxVertexPos, 1.);
@@ -107,8 +172,7 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             position: cubePosition,
             uv: cubeUv,
             normal: cubeNormal,
-            maxVertexPos: cubeMaxVertexPos,
-            minVertexPos: cubeMinVertexPos,
+            faceSize: cubeFaceSize,
         },
         elements: cubeElements,
         uniforms: {
@@ -118,9 +182,16 @@ export function mkDrawBox(regl: Regl, l: number, h: number, w: number) {
             projection: ({ viewportWidth, viewportHeight, time }) => camera.mkPerspectiveProj(viewportWidth, viewportHeight),
             objSize: [l, w, h],
             lightPos: regl.prop<any, any>("lightPos"),
-            color: regl.prop<any, any>("color"),
-            outlineThickness: 10.,
-            viewportSize: ({ viewportWidth, viewportHeight }) => [viewportWidth, viewportHeight]
+            colorStart: regl.prop<any, any>("colorStart"),
+            colorEnd: regl.prop<any, any>("colorEnd"),
+            gradAngle: regl.prop<any, any>("gradAngle"),
+            patternType: regl.prop<any, any>("patternType"),
+            patternColor: regl.prop<any, any>("patternColor"),
+            patternStartScale: regl.prop<any, any>("patternStartScale"),
+            patternEndScale: regl.prop<any, any>("patternEndScale"),
+            patternBlur: regl.prop<any, any>("patternBlur"),
+            patternAmount: regl.prop<any, any>("patternAmount"),
+            viewportSize: ({ viewportWidth, viewportHeight }) => [viewportWidth, viewportHeight],
         },
         cull: { enable: true }
     });
