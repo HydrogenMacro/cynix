@@ -35,7 +35,7 @@ export const wallState = proxy({
         patternColor: .5,
         patternStartScale: .5,
         patternEndScale: 0,
-        patternBlur: .1,
+        patternBlur: .05,
         patternAmount: 20,
     } as Wall,
     leftWall: {
@@ -46,7 +46,7 @@ export const wallState = proxy({
         patternColor: .5,
         patternStartScale: .5,
         patternEndScale: 0,
-        patternBlur: .1,
+        patternBlur: .05,
         patternAmount: 20,
     } as Wall,
     rightWall: {
@@ -57,7 +57,7 @@ export const wallState = proxy({
         patternColor: .5,
         patternStartScale: .5,
         patternEndScale: 0,
-        patternBlur: .1,
+        patternBlur: .05,
         patternAmount: 20,
     } as Wall,
     frontWall: {
@@ -66,9 +66,9 @@ export const wallState = proxy({
         pattern: "circle",
         gradAngle: 0,
         patternColor: .2,
-        patternStartScale: .5,
-        patternEndScale: 0,
-        patternBlur: .1,
+        patternStartScale: 0,
+        patternEndScale: .3,
+        patternBlur: .05,
         patternAmount: 20,
     } as Wall,
     backWall: {
@@ -79,7 +79,7 @@ export const wallState = proxy({
         patternColor: .2,
         patternStartScale: .5,
         patternEndScale: 0,
-        patternBlur: .1,
+        patternBlur: .05,
         patternAmount: 20,
     } as Wall,
     testCube: {
